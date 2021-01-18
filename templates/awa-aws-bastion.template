@@ -15,17 +15,17 @@ Metadata:
           default: Amazon EC2 configuration
         Parameters:
           - KeyPairName
-          - BastionAMIOS
-          - BastionInstanceType
+          - EC2AMIOS
+          - EC2InstanceType
           - RootVolumeSize
       - Label:
           default: Linux bastion configuration
         Parameters:
-          - NumBastionHosts
+          - NumEC2Hosts
           - BastionHostName
-          - BastionTenancy
+          - EC2Tenancy
           - EnableBanner
-          - BastionBanner
+          - EC2Banner
           - EnableTCPForwarding
           - EnableX11Forwarding
       - Label:
@@ -50,17 +50,17 @@ Metadata:
         default: Alternative IAM role
       AlternativeInitializationScript:
         default: Alternative initialization script
-      BastionAMIOS:
+      EC2AMIOS:
         default: Bastion AMI operating system
       BastionHostName:
         default: Bastion Host Name
-      BastionTenancy:
+      EC2Tenancy:
         default: Bastion tenancy
-      BastionBanner:
+      EC2Banner:
         default: Banner text
       QSS3BucketRegion:
         default: Quick Start S3 bucket region
-      BastionInstanceType:
+      EC2InstanceType:
         default: Bastion instance type
       EnableBanner:
         default: Bastion banner
@@ -72,7 +72,7 @@ Metadata:
         default: Environment variables
       KeyPairName:
         default: Key pair name
-      NumBastionHosts:
+      NumEC2Hosts:
         default: Number of bastion hosts
       OSImageOverride:
         default: Operating system override
@@ -94,7 +94,7 @@ Metadata:
         default: Okta Advanced Server Access Enrollment Token
   cfn-lint: { config: { ignore_checks: [E9007] } }
 Parameters:
-  BastionAMIOS:
+  EC2AMIOS:
     AllowedValues:
       - Ubuntu-Server-20.04-LTS-HVM
       - CentOS-7-HVM
@@ -107,18 +107,18 @@ Parameters:
     Default: 'LinuxBastion'
     Description: The value used for the name tag of the bastion host
     Type: String
-  BastionBanner:
+  EC2Banner:
     Default: ""
     Description: Banner text to display upon login.
     Type: String
-  BastionTenancy:
+  EC2Tenancy:
     Description: 'VPC tenancy to launch the bastion in. Options: ''dedicated'' or ''default'''
     Type: String
     Default: default
     AllowedValues:
       - dedicated
       - default
-  BastionInstanceType:
+  EC2InstanceType:
     AllowedValues:
       - t2.nano
       - t2.micro
@@ -162,7 +162,7 @@ Parameters:
   KeyPairName:
     Description: Name of an existing public/private key pair. If you do not have one in this AWS Region, please create it before continuing.
     Type: 'AWS::EC2::KeyPair::KeyName'
-  NumBastionHosts:
+  NumEC2Hosts:
     AllowedValues:
       - '1'
       - '2'
@@ -383,17 +383,17 @@ Mappings:
 Conditions:
   2BastionCondition: !Or
     - !Equals
-      - !Ref NumBastionHosts
+      - !Ref NumEC2Hosts
       - '2'
     - !Condition 3BastionCondition
     - !Condition 4BastionCondition
   3BastionCondition: !Or
     - !Equals
-      - !Ref NumBastionHosts
+      - !Ref NumEC2Hosts
       - '3'
     - !Condition 4BastionCondition
   4BastionCondition: !Equals
-    - !Ref NumBastionHosts
+    - !Ref NumEC2Hosts
     - '4'
   UseAlternativeInitialization: !Not
     - !Equals
@@ -409,7 +409,7 @@ Conditions:
   UsingDefaultBucket: !Equals
     - !Ref QSS3BucketName
     - 'aws-quickstart'
-  DefaultBanner: !Equals [!Ref BastionBanner, ""]
+  DefaultBanner: !Equals [!Ref EC2Banner, ""]
 Resources:
   BastionMainLogGroup:
     Type: 'AWS::Logs::LogGroup'
@@ -509,17 +509,17 @@ Resources:
       VPCZoneIdentifier:
         - !Ref PublicSubnet1ID
         - !Ref PublicSubnet2ID
-      MinSize: !Ref NumBastionHosts
-      MaxSize: !Ref NumBastionHosts
+      MinSize: !Ref NumEC2Hosts
+      MaxSize: !Ref NumEC2Hosts
       Cooldown: '900'
-      DesiredCapacity: !Ref NumBastionHosts
+      DesiredCapacity: !Ref NumEC2Hosts
       Tags:
         - Key: Name
           Value: !Ref BastionHostName
           PropagateAtLaunch: true
     CreationPolicy:
       ResourceSignal:
-        Count: !Ref NumBastionHosts
+        Count: !Ref NumEC2Hosts
         Timeout: PT60M
       AutoScalingCreationPolicy:
         MinSuccessfulInstancesPercent: 100
@@ -600,7 +600,7 @@ Resources:
             a-add_auditd_rules:
               cwd: '/tmp/'
               env:
-                BASTION_OS: !FindInMap [LinuxAMINameMap, !Ref BastionAMIOS, OS]
+                BASTION_OS: !FindInMap [LinuxAMINameMap, !Ref EC2AMIOS, OS]
               command: "./auditing_configure.sh"
               # command:
               #   - !If [ ]
@@ -618,17 +618,17 @@ Resources:
                   - !Sub
                     - s3://${S3Bucket}/${QSS3KeyPrefix}scripts/banner_message.txt
                     - S3Bucket: !If [ UsingDefaultBucket, !Sub 'aws-quickstart-${AWS::Region}', !Ref 'QSS3BucketName' ]
-                  - !Ref BastionBanner
+                  - !Ref EC2Banner
             c-install_asa:
               cwd: '/tmp/'
               env:
-                BASTION_OS: !FindInMap [LinuxAMINameMap, !Ref BastionAMIOS, OS]
+                BASTION_OS: !FindInMap [LinuxAMINameMap, !Ref EC2AMIOS, OS]
                 ENROLLMENT_TOKEN: !Ref EnrollmentToken
                 BASTION_HOSTNAME: !Ref BastionHostName
               command: "./install_asa_bastion.sh"
     Properties:
       AssociatePublicIpAddress: true
-      PlacementTenancy: !Ref BastionTenancy
+      PlacementTenancy: !Ref EC2Tenancy
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref BastionHostProfile
       ImageId: !If
@@ -639,11 +639,11 @@ Resources:
           - !Ref 'AWS::Region'
           - !FindInMap
             - LinuxAMINameMap
-            - !Ref BastionAMIOS
+            - !Ref EC2AMIOS
             - Code
       SecurityGroups:
         - !Ref BastionSecurityGroup
-      InstanceType: !Ref BastionInstanceType
+      InstanceType: !Ref EC2InstanceType
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:

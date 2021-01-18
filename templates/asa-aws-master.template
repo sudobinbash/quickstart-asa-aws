@@ -19,16 +19,16 @@ Metadata:
           default: Amazon EC2 configuration
         Parameters:
           - KeyPairName
-          - BastionAMIOS
-          - BastionInstanceType
+          - EC2AMIOS
+          - EC2InstanceType
       - Label:
           default: Linux bastion configuration
         Parameters:
-          - NumBastionHosts
+          - NumEC2Hosts
           - BastionHostName
-          - BastionTenancy
+          - EC2Tenancy
           - EnableBanner
-          - BastionBanner
+          - EC2Banner
           - EnableTCPForwarding
           - EnableX11Forwarding
       - Label:
@@ -44,15 +44,15 @@ Metadata:
     ParameterLabels:
       AvailabilityZones:
         default: Availability Zones
-      BastionAMIOS:
+      EC2AMIOS:
         default: Bastion AMI operating system
       BastionHostName:
         default: Bastion Host Name
-      BastionTenancy:
+      EC2Tenancy:
         default: Bastion tenancy
-      BastionBanner:
+      EC2Banner:
         default: Banner text
-      BastionInstanceType:
+      EC2InstanceType:
         default: Bastion instance type
       QSS3BucketRegion:
         default: Quick Start S3 bucket region
@@ -64,7 +64,7 @@ Metadata:
         default: X11 forwarding
       KeyPairName:
         default: Key pair name
-      NumBastionHosts:
+      NumEC2Hosts:
         default: Number of bastion hosts
       PrivateSubnet1CIDR:
         default: Private subnet 1 CIDR
@@ -91,7 +91,7 @@ Parameters:
   AvailabilityZones:
     Description: 'List of Availability Zones to use for the subnets in the VPC. Note: ( The logical order is preserved and only 2 AZs are used for this deployment.'
     Type: 'List<AWS::EC2::AvailabilityZone::Name>'
-  BastionAMIOS:
+  EC2AMIOS:
     AllowedValues:
       - Ubuntu-Server-20.04-LTS-HVM
       - CentOS-7-HVM
@@ -104,18 +104,18 @@ Parameters:
     Default: 'LinuxBastion'
     Description: The value used for the name tag of the bastion host
     Type: String
-  BastionBanner:
+  EC2Banner:
     Default: ""
     Description: Banner text to display upon login.
     Type: String
-  BastionTenancy:
+  EC2Tenancy:
     Description: 'VPC tenancy to launch the bastion in. Options: ''dedicated'' or ''default'''
     Type: String
     Default: default
     AllowedValues:
       - dedicated
       - default
-  BastionInstanceType:
+  EC2InstanceType:
     Description: Amazon EC2 instance type for the bastion instances.
     Type: String
     Default: t2.micro
@@ -163,7 +163,7 @@ Parameters:
     Description: Name of an existing public/private key pair, which allows you to securely connect to your instance after it launches.
     # TODO: Rename this label to a backup key
     Type: 'AWS::EC2::KeyPair::KeyName'
-  NumBastionHosts:
+  NumEC2Hosts:
     AllowedValues:
       - '1'
       - '2'
@@ -281,16 +281,16 @@ Resources:
             - !Ref 'AWS::Region'
             - !Ref 'QSS3BucketRegion'
       Parameters:
-        BastionAMIOS: !Ref BastionAMIOS
+        EC2AMIOS: !Ref EC2AMIOS
         BastionHostName: !Ref BastionHostName
-        BastionBanner: !Ref BastionBanner
-        BastionInstanceType: !Ref BastionInstanceType
-        BastionTenancy: !Ref BastionTenancy
+        EC2Banner: !Ref EC2Banner
+        EC2InstanceType: !Ref EC2InstanceType
+        EC2Tenancy: !Ref EC2Tenancy
         EnableBanner: !Ref EnableBanner
         EnableTCPForwarding: !Ref EnableTCPForwarding
         EnableX11Forwarding: !Ref EnableX11Forwarding
         KeyPairName: !Ref KeyPairName
-        NumBastionHosts: !Ref NumBastionHosts
+        NumEC2Hosts: !Ref NumEC2Hosts
         PublicSubnet1ID: !GetAtt 
           - VPCStack
           - Outputs.PublicSubnet1ID

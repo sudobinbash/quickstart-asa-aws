@@ -12,7 +12,7 @@ project:
   template: templates/asa-aws-master.template
   parameters:
     AvailabilityZones: $[taskcat_getaz_2]
-    BastionInstanceType: t3.medium
+    EC2InstanceType: t3.medium
     KeyPairName: $[taskcat_getkeypair]
     PrivateSubnet1CIDR: 10.0.0.0/19
     PrivateSubnet2CIDR: 10.0.32.0/19
@@ -25,25 +25,25 @@ project:
 tests:
   amazon:
     parameters:
-      BastionAMIOS: Amazon-Linux2-HVM
+      EC2AMIOS: Amazon-Linux2-HVM
       BastionHostName: bastion-amazon
     regions:
       - us-east-1
   centos:
     parameters:
-      BastionAMIOS: CentOS-7-HVM
+      EC2AMIOS: CentOS-7-HVM
       BastionHostName: bastion-centos
     regions:
       - us-west-1
   sles:
     parameters:
-      BastionAMIOS: SUSE-SLES-15-HVM
+      EC2AMIOS: SUSE-SLES-15-HVM
       BastionHostName: bastion-suse
     regions:
       - us-east-2
   ubuntu:
     parameters:
-      BastionAMIOS: Ubuntu-Server-20.04-LTS-HVM
+      EC2AMIOS: Ubuntu-Server-20.04-LTS-HVM
       BastionHostName: bastion-ubuntu
     regions:
       - us-west-2
