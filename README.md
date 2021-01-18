@@ -10,19 +10,19 @@ You can choose to create your Bastion and Target EC2 instances environment with 
 
 Deployment instructions:
 
-**Note:** The following instructions require an Okta tenant with Administrative rights. If you do not have an Okta tenant, sign up for a free trial (here)[https://www.okta.com/free-trial].
+**Note:** The following instructions require an Okta tenant with Administrative rights. If you do not have an Okta tenant, sign up for a free trial [here](https://www.okta.com/free-trial).
 
-## Create an Advanced Server Access team:
+## Create an Advanced Server Access team
 
-- Sign up for Okta Advanced Server Access (here)[https://app.scaleft.com/p/signup]
+- Sign up for Okta Advanced Server Access [here](https://app.scaleft.com/p/signup)
 - Follow the workflow to integrate with your Okta Org
-- Download the Client Application at: https://help.okta.com/en/prod/Content/Topics/Adv_Server_Access/docs/setup/enrolling-a-client.htm
+- Download the Client Application at https://help.okta.com/en/prod/Content/Topics/Adv_Server_Access/docs/setup/enrolling-a-client.htm
 - Create a Project and assign a Group that includes users you wish to grant access
 - Generate an Enrollment Token (copy this value, you will use it in the CloudFormation template)
 
-## Deploy the CloudFormation template:
+## Deploy the CloudFormation template
 
-- Sign up for an AWS account at https://aws.amazon.com, select a region, and create a key pair for the bastion and target instances.
+- Sign up for an [AWS account](https://aws.amazon.com), select a region, and create a key pair for the bastion and target instances.
 - In the AWS CloudFormation console, launch one of the following templates to build a new stack:
   - /templates/asa-aws-master.template (to deploy bastion and target hosts with Okta ASA into a new VPC)
   - /templates/asa-aws-bastion.template (to deploy bastion hosts with Okta ASA into your existing VPC)
