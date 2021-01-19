@@ -57,21 +57,21 @@ Metadata:
       AlternativeInitializationScript:
         default: Alternative initialization script
       EC2AMIOS:
-        default: Bastion AMI operating system
+        default: AMI operating system
       BastionHostName:
         default: Bastion Host Name
       TargetHostName:
         default: Target Host Name
       EC2Tenancy:
-        default: Bastion tenancy
+        default: Target tenancy
       EC2Banner:
         default: Banner text
       QSS3BucketRegion:
         default: Quick Start S3 bucket region
       EC2InstanceType:
-        default: Bastion instance type
+        default: Target instance type
       EnableBanner:
-        default: Bastion banner
+        default: Enable banner
       EnableTCPForwarding:
         default: TCP forwarding
       EnableX11Forwarding:
@@ -120,7 +120,6 @@ Parameters:
     Description: The Linux distribution for the AMI to be used for the target instances.
     Type: String
   BastionHostName:
-    Default: 'LinuxBastion'
     Description: The value used for the name tag of the bastion host
     Type: String
   TargetHostName:
@@ -407,20 +406,6 @@ Mappings:
       Code: SLES15HVM
       OS: SLES
 Conditions:
-  2BastionCondition: !Or
-    - !Equals
-      - !Ref NumEC2Hosts
-      - '2'
-    - !Condition 3BastionCondition
-    - !Condition 4BastionCondition
-  3BastionCondition: !Or
-    - !Equals
-      - !Ref NumEC2Hosts
-      - '3'
-    - !Condition 4BastionCondition
-  4BastionCondition: !Equals
-    - !Ref NumEC2Hosts
-    - '4'
   UseAlternativeInitialization: !Not
     - !Equals
       - !Ref AlternativeInitializationScript
@@ -437,18 +422,18 @@ Conditions:
     - 'aws-quickstart'
   DefaultBanner: !Equals [!Ref EC2Banner, ""]
 Resources:
-  BastionMainLogGroup:
+  TargetMainLogGroup:
     Type: 'AWS::Logs::LogGroup'
   SSHMetricFilter:
     Type: 'AWS::Logs::MetricFilter'
     Properties:
-      LogGroupName: !Ref BastionMainLogGroup
+      LogGroupName: !Ref TargetMainLogGroup
       FilterPattern: ON FROM USER PWD
       MetricTransformations:
         - MetricName: SSHCommandCount
           MetricValue: '1'
           MetricNamespace: !Sub "AWSQuickStart/${AWS::StackName}"
-  BastionHostRole:
+  TargetHostRole:
     Condition: CreateIAMRole
     Type: 'AWS::IAM::Role'
     Properties:
@@ -465,10 +450,10 @@ Resources:
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/CloudWatchAgentServerPolicy'
-  BastionHostPolicy:
+  TargetHostPolicy:
     Type: 'AWS::IAM::Policy'
     Properties:
-      PolicyName: BastionPolicy
+      PolicyName: TargetPolicy
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -487,7 +472,7 @@ Resources:
               - 'logs:PutRetentionPolicy'
               - 'logs:PutMetricFilter'
               - 'logs:CreateLogGroup'
-            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${BastionMainLogGroup}:*"
+            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${TargetMainLogGroup}:*"
             Effect: Allow
           - Action:
               - 'ec2:AssociateAddress'
@@ -497,41 +482,22 @@ Resources:
       Roles:
         - !If
           - CreateIAMRole
-          - !Ref BastionHostRole
+          - !Ref TargetHostRole
           - !Ref AlternativeIAMRole
-  BastionHostProfile:
-    DependsOn: BastionHostPolicy
+  TargetHostProfile:
+    DependsOn: TargetHostPolicy
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
         - !If
           - CreateIAMRole
-          - !Ref BastionHostRole
+          - !Ref TargetHostRole
           - !Ref AlternativeIAMRole
       Path: /
-  EIP1:
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  EIP2:
-    Type: 'AWS::EC2::EIP'
-    Condition: 2BastionCondition
-    Properties:
-      Domain: vpc
-  EIP3:
-    Type: 'AWS::EC2::EIP'
-    Condition: 3BastionCondition
-    Properties:
-      Domain: vpc
-  EIP4:
-    Type: 'AWS::EC2::EIP'
-    Condition: 4BastionCondition
-    Properties:
-      Domain: vpc
-  BastionAutoScalingGroup:
+  TargetAutoScalingGroup:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
-      LaunchConfigurationName: !Ref BastionLaunchConfiguration
+      LaunchConfigurationName: !Ref TargetLaunchConfiguration
       VPCZoneIdentifier:
         - !Ref 'PrivateSubnet1ID'
         - !Ref 'PrivateSubnet2ID'
@@ -552,7 +518,7 @@ Resources:
     UpdatePolicy:
       AutoScalingReplacingUpdate:
         WillReplace: true
-  BastionLaunchConfiguration:
+  TargetLaunchConfiguration:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Metadata:
       'AWS::CloudFormation::Authentication':
@@ -560,7 +526,7 @@ Resources:
           type: S3
           roleName: !If
             - CreateIAMRole
-            - !Ref BastionHostRole
+            - !Ref TargetHostRole
             - !Ref AlternativeIAMRole
           buckets:
             - !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
@@ -657,7 +623,7 @@ Resources:
       AssociatePublicIpAddress: false
       PlacementTenancy: !Ref EC2Tenancy
       KeyName: !Ref KeyPairName
-      IamInstanceProfile: !Ref BastionHostProfile
+      IamInstanceProfile: !Ref TargetHostProfile
       ImageId: !If
         - UseOSImageOverride
         - !Ref OSImageOverride
@@ -679,8 +645,7 @@ Resources:
             Encrypted: true
             DeleteOnTermination: true
       UserData:
-        Fn::Base64: !Sub
-          - |
+        Fn::Base64: !Sub |
             #!/bin/bash
             set -x
             for e in $(echo "${EnvironmentVariables}" | tr ',' ' '); do
@@ -692,13 +657,13 @@ Resources:
 
             function cfn_fail
             {
-              cfn-signal -e 1 --stack ${AWS::StackName} --region ${AWS::Region} --resource BastionAutoScalingGroup
+              cfn-signal -e 1 --stack ${AWS::StackName} --region ${AWS::Region} --resource TargetAutoScalingGroup
               exit 1
             }
 
             function cfn_success
             {
-              cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource BastionAutoScalingGroup
+              cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource TargetAutoScalingGroup
               exit 0
             }
 
@@ -709,29 +674,13 @@ Resources:
             qs_bootstrap_pip || qs_err " pip bootstrap failed ";
             qs_aws-cfn-bootstrap || qs_err " cfn bootstrap failed ";
 
-            EIP_LIST="${EIP1},${EIP2},${EIP3},${EIP4}"
-            CLOUDWATCHGROUP=${BastionMainLogGroup}
-            cfn-init -v --stack '${AWS::StackName}' --resource BastionLaunchConfiguration --region ${AWS::Region} || cfn_fail
+            CLOUDWATCHGROUP=${TargetMainLogGroup}
+            cfn-init -v --stack '${AWS::StackName}' --resource TargetLaunchConfiguration --region ${AWS::Region} || cfn_fail
             [ $(qs_status) == 0 ] && cfn_success || cfn_fail
-          - EIP2:
-              !If
-              - 2BastionCondition
-              - !Ref EIP2
-              - 'Null'
-            EIP3:
-              !If
-              - 3BastionCondition
-              - !Ref EIP3
-              - 'Null'
-            EIP4:
-              !If
-              - 4BastionCondition
-              - !Ref EIP4
-              - 'Null'
   TargetSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: Enables SSH Access to Bastion Hosts
+      GroupDescription: Enables SSH Access to Target Hosts
       VpcId: !Ref VPCID
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -743,37 +692,14 @@ Resources:
           ToPort: -1
           SourceSecurityGroupId: !Ref 'BastionSecurityGroupID'
 Outputs:
-  BastionAutoScalingGroup:
+  TargetAutoScalingGroup:
     Description: Auto Scaling Group Reference ID
-    Value: !Ref BastionAutoScalingGroup
+    Value: !Ref TargetAutoScalingGroup
     Export:
-      Name: !Sub '${AWS::StackName}-BastionAutoScalingGroup'
-  EIP1:
-    Description: Elastic IP 1 for Bastion
-    Value: !Ref EIP1
-    Export:
-      Name: !Sub '${AWS::StackName}-EIP1'
-  EIP2:
-    Condition: 2BastionCondition
-    Description: Elastic IP 2 for Bastion
-    Value: !Ref EIP2
-    Export:
-      Name: !Sub '${AWS::StackName}-EIP2'
-  EIP3:
-    Condition: 3BastionCondition
-    Description: Elastic IP 3 for Bastion
-    Value: !Ref EIP3
-    Export:
-      Name: !Sub '${AWS::StackName}-EIP3'
-  EIP4:
-    Condition: 4BastionCondition
-    Description: Elastic IP 4 for Bastion
-    Value: !Ref EIP4
-    Export:
-      Name: !Sub '${AWS::StackName}-EIP4'
+      Name: !Sub '${AWS::StackName}-TargetAutoScalingGroup'
   CloudWatchLogs:
     Description: CloudWatch Logs GroupName. Your SSH logs will be stored here.
-    Value: !Ref BastionMainLogGroup
+    Value: !Ref TargetMainLogGroup
     Export:
       Name: !Sub '${AWS::StackName}-CloudWatchLogs'
   TargetSecurityGroupID:
@@ -781,11 +707,11 @@ Outputs:
     Value: !Ref TargetSecurityGroup
     Export:
       Name: !Sub '${AWS::StackName}-TargetSecurityGroupID'
-  BastionHostRole:
-    Description: Bastion IAM Role name
+  TargetHostRole:
+    Description: Target IAM Role name
     Value: !If
       - CreateIAMRole
-      - !Ref BastionHostRole
+      - !Ref TargetHostRole
       - !Ref AlternativeIAMRole
     Export:
-      Name: !Sub '${AWS::StackName}-BastionHostRole'
+      Name: !Sub '${AWS::StackName}-TargetHostRole'

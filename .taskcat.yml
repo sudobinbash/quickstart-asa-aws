@@ -30,21 +30,24 @@ tests:
       TargetHostName: target-amazon
     regions:
       - us-east-1
-  # centos:
-  #   parameters:
-  #     EC2AMIOS: CentOS-7-HVM
-  #     BastionHostName: bastion-centos
-  #   regions:
-  #     - us-west-1
-  # sles:
-  #   parameters:
-  #     EC2AMIOS: SUSE-SLES-15-HVM
-  #     BastionHostName: bastion-suse
-  #   regions:
-  #     - us-east-2
-  # ubuntu:
-  #   parameters:
-  #     EC2AMIOS: Ubuntu-Server-20.04-LTS-HVM
-  #     BastionHostName: bastion-ubuntu
-  #   regions:
-  #     - us-west-2
+  centos:
+    parameters:
+      EC2AMIOS: CentOS-7-HVM
+      BastionHostName: bastion-centos
+      TargetHostName: target-centos
+    regions:
+      - us-west-1
+  sles:
+    parameters:
+      EC2AMIOS: SUSE-SLES-15-HVM
+      BastionHostName: bastion-suse
+      TargetHostName: target-suse
+    regions:
+      - us-east-2
+  ubuntu:
+    parameters:
+      EC2AMIOS: Ubuntu-Server-20.04-LTS-HVM
+      BastionHostName: bastion-ubuntu
+      TargetHostName: target-ubuntu
+    regions:
+      - us-west-2
