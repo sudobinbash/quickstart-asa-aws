@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: This CloudFormation template deploys a bastion host enrolled with Okta Advanced Server Access
+Description: This CloudFormation template deploys a target host enrolled with Okta Advanced Server Access
 Metadata:
   LICENSE: Apache License, Version 2.0
   'AWS::CloudFormation::Interface':
@@ -10,6 +10,8 @@ Metadata:
           - VPCID
           - PublicSubnet1ID
           - PublicSubnet2ID
+          - PrivateSubnet2ID
+          - PrivateSubnet1ID
           - RemoteAccessCIDR
       - Label:
           default: Amazon EC2 configuration
@@ -18,11 +20,13 @@ Metadata:
           - EC2AMIOS
           - EC2InstanceType
           - RootVolumeSize
+          - BastionSecurityGroupID
       - Label:
-          default: Linux bastion configuration
+          default: Linux target configuration
         Parameters:
           - NumEC2Hosts
           - BastionHostName
+          - TargetHostName
           - EC2Tenancy
           - EnableBanner
           - EC2Banner
@@ -46,6 +50,8 @@ Metadata:
         Parameters:
           - EnrollmentToken
     ParameterLabels:
+      BastionSecurityGroupID:
+        default: Bastion Security Group ID
       AlternativeIAMRole:
         default: Alternative IAM role
       AlternativeInitializationScript:
@@ -54,6 +60,8 @@ Metadata:
         default: Bastion AMI operating system
       BastionHostName:
         default: Bastion Host Name
+      TargetHostName:
+        default: Target Host Name
       EC2Tenancy:
         default: Bastion tenancy
       EC2Banner:
@@ -73,19 +81,23 @@ Metadata:
       KeyPairName:
         default: Key pair name
       NumEC2Hosts:
-        default: Number of bastion hosts
+        default: Number of target hosts
       OSImageOverride:
         default: Operating system override
       PublicSubnet1ID:
         default: Public subnet 1 ID
       PublicSubnet2ID:
         default: Public subnet 2 ID
+      PrivateSubnet1ID:
+        default: Private Subnet 1 ID
+      PrivateSubnet2ID:
+        default: Private Subnet 2 ID
       QSS3BucketName:
         default: Quick Start S3 bucket name
       QSS3KeyPrefix:
         default: Quick Start S3 key prefix
       RemoteAccessCIDR:
-        default: Allowed bastion external access CIDR
+        default: Allowed target external access CIDR
       VPCID:
         default: VPC ID
       RootVolumeSize:
@@ -94,6 +106,10 @@ Metadata:
         default: Okta Advanced Server Access Enrollment Token
   cfn-lint: { config: { ignore_checks: [E9007] } }
 Parameters:
+  BastionSecurityGroupID:
+    Description: ID of the bastion host security group to enable SSH connections (e.g.,
+      sg-7f16e910)
+    Type: AWS::EC2::SecurityGroup::Id
   EC2AMIOS:
     AllowedValues:
       - Ubuntu-Server-20.04-LTS-HVM
@@ -101,18 +117,22 @@ Parameters:
       - SUSE-SLES-15-HVM
       - Amazon-Linux2-HVM
     Default: Amazon-Linux2-HVM
-    Description: The Linux distribution for the AMI to be used for the bastion instances.
+    Description: The Linux distribution for the AMI to be used for the target instances.
     Type: String
   BastionHostName:
     Default: 'LinuxBastion'
     Description: The value used for the name tag of the bastion host
+    Type: String
+  TargetHostName:
+    Default: 'LinuxTarget'
+    Description: The value used for the name tag of the target host
     Type: String
   EC2Banner:
     Default: ""
     Description: Banner text to display upon login.
     Type: String
   EC2Tenancy:
-    Description: 'VPC tenancy to launch the bastion in. Options: ''dedicated'' or ''default'''
+    Description: 'VPC tenancy to launch the target in. Options: ''dedicated'' or ''default'''
     Type: String
     Default: default
     AllowedValues:
@@ -136,14 +156,14 @@ Parameters:
       - m4.2xlarge
       - m4.4xlarge
     Default: t2.micro
-    Description: Amazon EC2 instance type for the bastion instances.
+    Description: Amazon EC2 instance type for the target instances.
     Type: String
   EnableBanner:
     AllowedValues:
       - 'true'
       - 'false'
     Default: 'false'
-    Description: To include a banner to be displayed when connecting via SSH to the bastion, choose true.
+    Description: To include a banner to be displayed when connecting via SSH to the target, choose true.
     Type: String
   EnableTCPForwarding:
     Type: String
@@ -169,16 +189,22 @@ Parameters:
       - '3'
       - '4'
     Default: '1'
-    Description: The number of bastion hosts to create. The maximum number is four.
+    Description: The number of target hosts to create. The maximum number is four.
     Type: String
   PublicSubnet1ID:
-    Description: ID of the public subnet 1 that you want to provision the first bastion
+    Description: ID of the public subnet 1 that you want to provision the first target
       into (e.g., subnet-a0246dcd).
     Type: 'AWS::EC2::Subnet::Id'
   PublicSubnet2ID:
-    Description: ID of the public subnet 2 that you want to provision the second bastion into
+    Description: ID of the public subnet 2 that you want to provision the second target into
       (e.g., subnet-e3246d8e).
     Type: 'AWS::EC2::Subnet::Id'
+  PrivateSubnet1ID:
+    Description: ID of the private subnet 1 in Availability Zone 1 (e.g., subnet-a0246dcd)
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2ID:
+    Description: ID of the private subnet 2 in Availability Zone 2 (e.g., subnet-a0246dcd)
+    Type: AWS::EC2::Subnet::Id
   QSS3BucketName:
     AllowedPattern: '^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$'
     ConstraintDescription: Quick Start bucket name can include numbers, lowercase letters, uppercase
@@ -205,7 +231,7 @@ Parameters:
   RemoteAccessCIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
-    Description: Allowed CIDR block for external SSH access to the bastions.
+    Description: Allowed CIDR block for external SSH access to the targets.
     Type: String
   VPCID:
     Description: 'ID of the VPC (e.g., vpc-0343606e).'
@@ -221,7 +247,7 @@ Parameters:
     Type: String
     Default: ''
   AlternativeIAMRole:
-    Description: An existing IAM Role name to attach to the bastion. If left blank,
+    Description: An existing IAM Role name to attach to the target. If left blank,
       a new role will be created.
     Default: ''
     Type: String
@@ -507,15 +533,15 @@ Resources:
     Properties:
       LaunchConfigurationName: !Ref BastionLaunchConfiguration
       VPCZoneIdentifier:
-        - !Ref PublicSubnet1ID
-        - !Ref PublicSubnet2ID
+        - !Ref 'PrivateSubnet1ID'
+        - !Ref 'PrivateSubnet2ID'
       MinSize: !Ref NumEC2Hosts
       MaxSize: !Ref NumEC2Hosts
       Cooldown: '900'
       DesiredCapacity: !Ref NumEC2Hosts
       Tags:
         - Key: Name
-          Value: !Ref BastionHostName
+          Value: !Ref TargetHostName
           PropagateAtLaunch: true
     CreationPolicy:
       ResourceSignal:
@@ -541,9 +567,9 @@ Resources:
       'AWS::CloudFormation::Init':
         config:
           files:
-            /tmp/install_asa_bastion.sh:
+            /tmp/install_asa_target.sh:
               source: !Sub
-                - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/install_asa_bastion.sh
+                - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/install_asa_target.sh
                 - S3Bucket: !If
                     - UsingDefaultBucket
                     - !Sub 'aws-quickstart-${AWS::Region}'
@@ -578,12 +604,12 @@ Resources:
               owner: root
               group: root
               authentication: S3AccessCreds
-            /tmp/bastion_bootstrap.sh:
+            /tmp/target_bootstrap.sh:
               source: !If
                 - UseAlternativeInitialization
                 - !Ref AlternativeInitializationScript
                 - !Sub
-                  - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/bastion_bootstrap.sh
+                  - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/target_bootstrap.sh
                   - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub 'aws-quickstart-${AWS::Region}'
@@ -612,7 +638,7 @@ Resources:
                 URL_SUFFIX: !Sub ${AWS::URLSuffix}
                 BANNER_REGION: !If [ UsingDefaultBucket, !Ref 'AWS::Region', !Ref 'QSS3BucketRegion' ]
               command: !Sub
-                - "./bastion_bootstrap.sh --banner ${BannerUrl} --enable ${EnableBanner} --tcp-forwarding ${EnableTCPForwarding} --x11-forwarding ${EnableX11Forwarding}"
+                - "./target_bootstrap.sh --banner ${BannerUrl} --enable ${EnableBanner} --tcp-forwarding ${EnableTCPForwarding} --x11-forwarding ${EnableX11Forwarding}"
                 - BannerUrl: !If
                   - DefaultBanner
                   - !Sub
@@ -622,12 +648,13 @@ Resources:
             c-install_asa:
               cwd: '/tmp/'
               env:
-                BASTION_OS: !FindInMap [LinuxAMINameMap, !Ref EC2AMIOS, OS]
+                TARGET_OS: !FindInMap [LinuxAMINameMap, !Ref EC2AMIOS, OS]
                 ENROLLMENT_TOKEN: !Ref EnrollmentToken
                 BASTION_HOSTNAME: !Ref BastionHostName
-              command: "./install_asa_bastion.sh"
+                TARGET_HOSTNAME: !Ref TargetHostName
+              command: "./install_asa_target.sh"
     Properties:
-      AssociatePublicIpAddress: true
+      AssociatePublicIpAddress: false
       PlacementTenancy: !Ref EC2Tenancy
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref BastionHostProfile
@@ -642,7 +669,7 @@ Resources:
             - !Ref EC2AMIOS
             - Code
       SecurityGroups:
-        - !Ref BastionSecurityGroup
+        - !Ref TargetSecurityGroup
       InstanceType: !Ref EC2InstanceType
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
@@ -701,7 +728,7 @@ Resources:
               - 4BastionCondition
               - !Ref EIP4
               - 'Null'
-  BastionSecurityGroup:
+  TargetSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: Enables SSH Access to Bastion Hosts
@@ -710,11 +737,11 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: !Ref RemoteAccessCIDR
+          SourceSecurityGroupId: !Ref 'BastionSecurityGroupID'
         - IpProtocol: icmp
           FromPort: -1
           ToPort: -1
-          CidrIp: !Ref RemoteAccessCIDR
+          SourceSecurityGroupId: !Ref 'BastionSecurityGroupID'
 Outputs:
   BastionAutoScalingGroup:
     Description: Auto Scaling Group Reference ID
@@ -749,11 +776,11 @@ Outputs:
     Value: !Ref BastionMainLogGroup
     Export:
       Name: !Sub '${AWS::StackName}-CloudWatchLogs'
-  BastionSecurityGroupID:
-    Description: Bastion Security Group ID
-    Value: !Ref BastionSecurityGroup
+  TargetSecurityGroupID:
+    Description: Target Security Group ID
+    Value: !Ref TargetSecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-BastionSecurityGroupID'
+      Name: !Sub '${AWS::StackName}-TargetSecurityGroupID'
   BastionHostRole:
     Description: Bastion IAM Role name
     Value: !If

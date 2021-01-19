@@ -26,6 +26,7 @@ Metadata:
         Parameters:
           - NumEC2Hosts
           - BastionHostName
+          - TargetHostName
           - EC2Tenancy
           - EnableBanner
           - EC2Banner
@@ -48,6 +49,8 @@ Metadata:
         default: Bastion AMI operating system
       BastionHostName:
         default: Bastion Host Name
+      TargetHostName:
+        default: Target Host Name
       EC2Tenancy:
         default: Bastion tenancy
       EC2Banner:
@@ -104,6 +107,10 @@ Parameters:
     Default: 'LinuxBastion'
     Description: The value used for the name tag of the bastion host
     Type: String
+  TargetHostName:
+    Default: 'LinuxTarget'
+    Description: The value used for the name tag of the target host
+    Type: String
   EC2Banner:
     Default: ""
     Description: Banner text to display upon login.
@@ -148,14 +155,14 @@ Parameters:
   EnableTCPForwarding:
     Type: String
     Description: To enable TCP forwarding, choose true.
-    Default: 'false'
+    Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
   EnableX11Forwarding:
     Type: String
     Description: To enable X11 forwarding, choose true.
-    Default: 'false'
+    Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
@@ -268,6 +275,7 @@ Resources:
         VPCCIDR: !Ref VPCCIDR
         VPCTenancy: !Ref VPCTenancy
   BastionStack:
+    DependsOn: VPCStack
     Type: 'AWS::CloudFormation::Stack'
     Properties:
       TemplateURL: !Sub
@@ -305,4 +313,40 @@ Resources:
           - VPCStack
           - Outputs.VPCID
         EnrollmentToken: !Ref EnrollmentToken
-
+  TargetStack:
+    DependsOn: BastionStack
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: !Sub
+        - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}templates/awa-aws-target.template
+        - S3Bucket: !If
+            - UsingDefaultBucket
+            - !Sub 'aws-quickstart-${AWS::Region}'
+            - !Ref 'QSS3BucketName'
+          S3Region: !If
+            - UsingDefaultBucket
+            - !Ref 'AWS::Region'
+            - !Ref 'QSS3BucketRegion'
+      Parameters:
+        BastionSecurityGroupID: !GetAtt 'BastionStack.Outputs.BastionSecurityGroupID'
+        EC2AMIOS: !Ref EC2AMIOS
+        BastionHostName: !Ref BastionHostName
+        TargetHostName: !Ref TargetHostName
+        EC2Banner: !Ref EC2Banner
+        EC2InstanceType: !Ref EC2InstanceType
+        EC2Tenancy: !Ref EC2Tenancy
+        EnableBanner: !Ref EnableBanner
+        EnableTCPForwarding: !Ref EnableTCPForwarding
+        EnableX11Forwarding: !Ref EnableX11Forwarding
+        KeyPairName: !Ref KeyPairName
+        NumEC2Hosts: !Ref NumEC2Hosts
+        PrivateSubnet1ID: !GetAtt 'VPCStack.Outputs.PrivateSubnet1AID'
+        PrivateSubnet2ID: !GetAtt 'VPCStack.Outputs.PrivateSubnet2AID'
+        PublicSubnet1ID: !GetAtt 'VPCStack.Outputs.PublicSubnet1ID'
+        PublicSubnet2ID: !GetAtt 'VPCStack.Outputs.PublicSubnet2ID'
+        QSS3BucketRegion: !Ref QSS3BucketRegion
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        RemoteAccessCIDR: !Ref RemoteAccessCIDR
+        VPCID: !GetAtt 'VPCStack.Outputs.VPCID'
+        EnrollmentToken: !Ref EnrollmentToken
