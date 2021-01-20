@@ -2,3 +2,5 @@
 .taskcat/*
 taskcat_outputs
 debug/*
+*.DS_Store
+docs/index_test.html
