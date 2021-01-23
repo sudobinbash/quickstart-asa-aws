@@ -208,7 +208,7 @@ Parameters:
     AllowedPattern: '^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$'
     ConstraintDescription: Quick Start bucket name can include numbers, lowercase letters, uppercase
       letters, and hyphens (-). It cannot start or end with a hyphen (-).
-    Default: aws-quickstart
+    Default: quickstart-asa-aws
     Description: S3 bucket name for the Quick Start assets. Quick Start bucket name can
       include numbers, lowercase letters, uppercase letters, and hyphens (-). It
       cannot start or end with a hyphen (-).
@@ -419,7 +419,7 @@ Conditions:
       - ''
   UsingDefaultBucket: !Equals
     - !Ref QSS3BucketName
-    - 'aws-quickstart'
+    - 'quickstart-asa-aws'
   DefaultBanner: !Equals [!Ref EC2Banner, ""]
 Resources:
   TargetMainLogGroup:
@@ -538,7 +538,7 @@ Resources:
                 - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/install_asa_target.sh
                 - S3Bucket: !If
                     - UsingDefaultBucket
-                    - !Sub 'aws-quickstart-${AWS::Region}'
+                    - !Sub 'quickstart-asa-aws-${AWS::Region}'
                     - !Ref 'QSS3BucketName'
                   S3Region: !If
                     - UsingDefaultBucket
@@ -560,7 +560,7 @@ Resources:
                 - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/auditing_configure.sh
                 - S3Bucket: !If
                     - UsingDefaultBucket
-                    - !Sub 'aws-quickstart-${AWS::Region}'
+                    - !Sub 'quickstart-asa-aws-${AWS::Region}'
                     - !Ref 'QSS3BucketName'
                   S3Region: !If
                     - UsingDefaultBucket
@@ -578,7 +578,7 @@ Resources:
                   - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/target_bootstrap.sh
                   - S3Bucket: !If
                       - UsingDefaultBucket
-                      - !Sub 'aws-quickstart-${AWS::Region}'
+                      - !Sub 'quickstart-asa-aws-${AWS::Region}'
                       - !Ref 'QSS3BucketName'
                     S3Region: !If
                       - UsingDefaultBucket
@@ -609,7 +609,7 @@ Resources:
                   - DefaultBanner
                   - !Sub
                     - s3://${S3Bucket}/${QSS3KeyPrefix}scripts/banner_message.txt
-                    - S3Bucket: !If [ UsingDefaultBucket, !Sub 'aws-quickstart-${AWS::Region}', !Ref 'QSS3BucketName' ]
+                    - S3Bucket: !If [ UsingDefaultBucket, !Sub 'quickstart-asa-aws-${AWS::Region}', !Ref 'QSS3BucketName' ]
                   - !Ref EC2Banner
             c-install_asa:
               cwd: '/tmp/'
